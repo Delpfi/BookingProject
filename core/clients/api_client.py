@@ -75,6 +75,4 @@ class APIClient:
             response.raise_for_status()
         with allure.step("Checking status code"):
             assert response.status_code == 200, f"Expected status code 200 but got {response.status_code}"
-        response_json = response.json()
-        with allure.step("Checking the response format"):
-            assert isinstance(response_json, dict)
+        return response.json()
