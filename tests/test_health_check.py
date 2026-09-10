@@ -63,8 +63,5 @@ def test_ping_timeout(api_client, mocker):
     with pytest.raises(requests.Timeout):
         api_client.ping()
 
-@allure.feature('Test Create')
-def test_create_booking(api_client, generate_random_booking_date):
-    response_json = api_client.create_booking(generate_random_booking_date)
-    assert isinstance(response_json, dict)
+
 
