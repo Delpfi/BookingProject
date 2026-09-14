@@ -1,5 +1,6 @@
 import allure
 import pytest
+import requests.exceptions
 from pydantic import ValidationError
 from core.models.booking import BookingResponse
 
@@ -47,82 +48,43 @@ def test_create_booking_with_custom_data(api_client):
 #В booking_data генерируются даты checkin и checkout и проверка результата
 @allure.feature('Test creating booking')
 @allure.story('Positive: creating booking with custom data and bookingdates')
-def test_create_booking_with_custom_data_and_bookingdates(api_client,booking_dates):
-    booking_data = {
-        "firstname": "Petr",
-        "lastname": "Ivannovich",
-        "totalprice": 149,
-        "depositpaid": True,
-        "bookingdates": {
-            "checkin": booking_dates.get("checkin"),
-            "checkout": booking_dates.get("checkout")
-        },
-        "additionalneeds": "Dinner"
-    }
+def test_create_booking_with_custom_data_and_bookingdates(api_client,generate_random_booking_date):
+    data_generate = generate_random_booking_date
 
-    response = api_client.create_booking(booking_data)
+    response = api_client.create_booking(data_generate)
     try:
         BookingResponse(**response)
     except ValidationError as e:
         raise ValidationError(f"Response validation failed: {e}")
 
-    assert response["booking"]["firstname"] == booking_data.get("firstname")
-    assert response["booking"]["lastname"] == booking_data.get("lastname")
-    assert response["booking"]["totalprice"] == booking_data.get("totalprice")
-    assert response["booking"]["depositpaid"] == booking_data.get("depositpaid")
-    assert response["booking"]["bookingdates"]["checkin"] == booking_data.get("bookingdates").get("checkin")
-    assert response["booking"]["bookingdates"]["checkout"] == booking_data.get("bookingdates").get("checkout")
-    assert response["booking"]["additionalneeds"] == booking_data.get("additionalneeds")
+    assert response["booking"]["firstname"] == data_generate.get("firstname")
+    assert response["booking"]["lastname"] == data_generate.get("lastname")
+    assert response["booking"]["totalprice"] == data_generate.get("totalprice")
+    assert response["booking"]["depositpaid"] == data_generate.get("depositpaid")
+    assert response["booking"]["bookingdates"]["checkin"] == data_generate.get("bookingdates").get("checkin")
+    assert response["booking"]["bookingdates"]["checkout"] == data_generate.get("bookingdates").get("checkout")
+    assert response["booking"]["additionalneeds"] == data_generate.get("additionalneeds")
 
 
 #Негативный сценарий, создать бранирования и не указывать пользовательские данные, а только даты
 @allure.feature('Test creating booking')
 @allure.story('Negative: creating a booking without user data')
-def test_create_without_user_data(api_client,booking_dates,mocker):
+def test_create_without_user_data(api_client,booking_dates):
     booking_data = {
-        "bookingdates": {
-            "checkin": booking_dates.get("checkin"),
-            "checkout": booking_dates.get("checkout")
-        }
+        "bookingdates": booking_dates
     }
-
-    mock_response = mocker.Mock()
-    mock_response.status_code = 500
-    mocker.patch.object(api_client.session, 'post', return_value=mock_response)
-    with pytest.raises(AssertionError, match="Expected status code 200 but got 500"):
+    with pytest.raises(requests.exceptions.HTTPError) as error:
         api_client.create_booking(booking_data)
+    error = error.value
+    assert error.response.status_code == 500
 
 
-#Негативный сценарий, создание бронирования с данными в неверном формате
-@allure.feature('Test creating booking')
-@allure.story('Negative: creating booking with incorrect format data')
-def test_create_with_incorrect_format(api_client,booking_dates,mocker):
-    booking_data = {
-        "firstname": 134,
-        "lastname": "Ivannovich",
-        "totalprice": "149",
-        "depositpaid": True,
-        "bookingdates": {
-            "checkin": booking_dates.get("checkin"),
-            "checkout": booking_dates.get("checkout")
-        },
-        "additionalneeds": "Dinner"
-    }
-
-    mock_response = mocker.Mock()
-    mock_response.status_code = 500
-    mocker.patch.object(api_client.session, 'post', return_value=mock_response)
-    with pytest.raises(AssertionError, match="Expected status code 200 but got 500"):
-        api_client.create_booking(booking_data)
 
 #Негативный сценарий, создание бронирования без данных
 @allure.feature('Test creating booking')
 @allure.story('Negative: creating booking with not data')
-def test_create_with_not_data(api_client,mocker):
-    booking_data = {}
-
-    mock_response = mocker.Mock()
-    mock_response.status_code = 500
-    mocker.patch.object(api_client.session, 'post', return_value=mock_response)
-    with pytest.raises(AssertionError, match="Expected status code 200 but got 500"):
-        api_client.create_booking(booking_data)
+def test_create_with_not_data(api_client):
+    with pytest.raises(requests.exceptions.HTTPError) as error:
+        api_client.create_booking({})
+    error = error.value
+    assert error.response.status_code == 500
